@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "member"] },
+        "familyId": { "type": "string" },
+        "approved": { "type": "boolean" },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Family": {
+      "title": "Family",
+      "description": "A family group sharing finances",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "adminId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "code", "adminId"]
+    },
+    "JoinRequest": {
+      "title": "JoinRequest",
+      "description": "Request to join a family",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "familyId": { "type": "string" },
+        "userName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "familyId", "status"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Financial expense entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "familyId": { "type": "string" },
+        "amount": { "type": "number" },
+        "merchant": { "type": "string" },
+        "category": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "rawText": { "type": "string" },
+        "type": { "type": "string", "enum": ["need", "want"] }
+      },
+      "required": ["userId", "familyId", "amount", "merchant", "category", "date"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/families/{familyId}": {
+      "schema": "Family",
+      "description": "Family records"
+    },
+    "/joinRequests/{requestId}": {
+      "schema": "JoinRequest",
+      "description": "Pending family join requests"
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Aggregated expenses for families"
+    }
+  }
+}

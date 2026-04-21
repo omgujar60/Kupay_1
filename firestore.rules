@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isApproved() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.approved == true;
+    }
+
+    function getUserFamilyId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.familyId;
+    }
+
+    function isInFamily(familyId) {
+      return isSignedIn() && getUserFamilyId() == familyId && isApproved();
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Public health check
+    match /public/health {
+      allow read: if true;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && 
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'approved']) || 
+         resource.data.approved == false); // Basic safety
+    }
+
+    // Family records
+    match /families/{familyId} {
+      // Allow reading family name/metadata if you are a member (even pending)
+      allow read: if isSignedIn() && (
+        resource.data.adminId == request.auth.uid || 
+        getUserFamilyId() == familyId
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource.data.adminId == request.auth.uid;
+    }
+
+    // Join requests
+    match /joinRequests/{requestId} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || 
+        get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.adminId == request.auth.uid
+      );
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.adminId == request.auth.uid
+      ) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+
+    // Expenses
+    match /expenses/{expenseId} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || 
+        isInFamily(resource.data.familyId)
+      );
+      allow create: if isSignedIn() && 
+        request.resource.data.userId == request.auth.uid && 
+        (request.resource.data.familyId == null || (getUserFamilyId() == request.resource.data.familyId && isApproved()));
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
